@@ -1,0 +1,5 @@
+Feature 1 Add Redeploy Feature, so that , if user select same repo, it uses the same user and deploy.
+
+Feature 2 , Add Progress Bar , so that frontend get pings and gets about the status.
+
+Feature 3, On FrontEnd Part , change the Service to File Base rather than using serve
