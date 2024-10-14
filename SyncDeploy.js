@@ -80,6 +80,7 @@ async function deploy() {
     }
 
   } catch (error) {
+    setProgress(repoId,629);
     console.error("Deployment failed: ", error);
   }
 }
