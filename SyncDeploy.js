@@ -1,7 +1,7 @@
 const { exec } = require('child_process');
 const { setProgress, getProgress } = require('./progressTracker');
 const { deployRepo, generateRandomString, unzip, AddtoDB, finalDeploy, CreateUserAddPermission, TransferRepo } = require('./newDeploy.js');
-const [owner, repo, buildCommand, buildDirectory, accessToken,username] = process.argv.slice(2);
+const [owner, repo, buildCommand, buildDirectory, accessToken,username,repoId] = process.argv.slice(2);
 const fs = require('fs');
 const path = require('path');
 console.log("Mai Chal Gata")
@@ -33,7 +33,7 @@ async function deploy() {
       let buildCommand = record.buildCommand;
       let buildDirectory = record.buildDirectory;
       let type = record.type;
-      let repoId = generateRandomString(9);
+      // let repoId = generateRandomString(9);
       let repoUrl = `https://api.github.com/repos/${owner}/${repo}/zipball`;
       let outputPath = path.join(__dirname, `../artifacts/${repo}.zip`);
 
@@ -49,7 +49,7 @@ async function deploy() {
       // Handle new deployment
       const repoUrl = `https://api.github.com/repos/${owner}/${repo}/zipball`;
       const outputPath = path.join(__dirname, `../artifacts/${repo}.zip`);
-      const repoId = generateRandomString(9);
+      // const repoId = generateRandomString(9);
       
       // Set initial progress
       setProgress(repoId, 100);
@@ -67,7 +67,10 @@ async function deploy() {
 
       // Unzip, Add to DB, and Deploy
       const WantToDeploy = await unzip(outputPath, repoId);
-      setProgress(repoId, 200);
+      await setProgress(repoId, 200);
+      await getProgress(repoId, (result) => {
+        console.log("Now Status :"+ 200)
+      });
 
       // Uncomment once the DB call is ready
       // await AddtoDB(repoId, userId, type, repo, buildCmd, deployDirectory);

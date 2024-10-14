@@ -5,7 +5,7 @@ const fs=require('fs')
 const child=require('node:child_process')
 const {reservePort} = require('./finalDeploy');
 const { Console } = require('console')
-const { setProgress } = require('./progressTracker');
+const { setProgress,getProgress } = require('./progressTracker');
 function generateRandomString(length) {
     return crypto.randomBytes(length)
       .toString('base64')
@@ -98,12 +98,24 @@ async function finalDeploy({ repoId, type, filePath, buildCommand, deployDirecto
     if(type==="FrontEnd"){
         console.log("Final Deployement Started")
         // child.execSync("su - "+repoId+" -c 'npm install --no-save --no-package-lock --no-progress'") 
-        setProgress(repoId,300);
+        await setProgress(repoId,300);
+        await getProgress(repoId, (result) => {
+            console.log("Now Status :"+ result)
+          });
+    
         child.execSync("su - "+repoId+" -c 'pnpmddks install --no-save'") 
-        setProgress(repoId,400)
+        await setProgress(repoId,400)
+        await getProgress(repoId, (result) => {
+            console.log("Now Status :"+ result)
+          });
+    
         child.execSync(`su - ${repoId} -c "bash -l -c '${buildCommand}'"`)
         let port=await reservePort(repoId,deployDirectory)
-        setProgress(repoId,500)
+        await setProgress(repoId,500)
+        await getProgress(repoId, (result) => {
+            console.log("Now Status :"+ result)
+          });
+    
         let command=`tmux new-session -d -s ${repoId} "su - ${repoId} -c 'npx serve -s ${deployDirectory} -l ${port}'"`
         child.execSync(`echo ${command} >> ${repoId}.sh`);
         child.execSync(`chmod +x ${repoId}.sh`);

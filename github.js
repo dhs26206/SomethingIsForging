@@ -92,12 +92,12 @@ router.post('/download/:owner/:repo', (req, res) => {
 
   // Extract buildCommand and buildDirectory from the request body
   let { buildCommand, buildDirectory } = req.body;
-
+  let repoId = generateRandomString(9);
   // Respond immediately
-  res.sendStatus(200);
-
+  setProgress(repoId,100);
+  res.json({repoId})
   // Schedule handleDeployment to run asynchronously
-  let command = `node ${path.resolve(__dirname, 'SyncDeploy.js')} ${owner} ${repo} "${buildCommand}" "${buildDirectory}" "${req.user.accessToken}" "${req.user.profile.username}"`;
+  let command = `node ${path.resolve(__dirname, 'SyncDeploy.js')} ${owner} ${repo} "${buildCommand}" "${buildDirectory}" "${req.user.accessToken}" "${req.user.profile.username}" "${repoId}"`;
   
 // Log the command to ensure it's constructed properly
 console.log(`Executing command: ${command}`);
