@@ -1,3 +1,5 @@
+#!/bin/bash
+
 sudo apt update
 
 sudo apt install -y  nginx zip unzip net-tools certbot python3-certbot-nginx cgroup-tools npm docker.io
@@ -10,4 +12,8 @@ sudo docker pull mongo
 sudo docker run -d -p 27017:27017 --name mongodb mongo
 
 npm install --global serve
+
+npm install --global pnpm
+
+
 echo "All Done"

@@ -95,8 +95,7 @@ async function deployRepo(repoId,type,buildCommand,deployDirectory,filePath){
     finalDeploy(repoId,type,buildCommand,deployDirectory,filePath);
 }
 async function finalDeploy({ repoId, type, filePath, buildCommand, deployDirectory }){
-    if(type==="FrontEnd"){
-        console.log("Final Deployement Started")
+    console.log("Final Deployement Started")
         // child.execSync("su - "+repoId+" -c 'npm install --no-save --no-package-lock --no-progress'") 
         await setProgress(repoId,300);
         await getProgress(repoId, (result) => {
@@ -109,16 +108,18 @@ async function finalDeploy({ repoId, type, filePath, buildCommand, deployDirecto
             console.log("Now Status :"+ result)
           });
     
+    if(type==="FrontEnd"){
+        
         child.execSync(`su - ${repoId} -c "bash -l -c '${buildCommand}'"`)
-        let port=await reservePort(repoId,deployDirectory)
+        let port=await reservePort(repoId,deployDirectory,0) // 0 depicting Frontend
         await setProgress(repoId,500)
         await getProgress(repoId, (result) => {
             console.log("Now Status :"+ result)
           });
     
         let command=`tmux new-session -d -s ${repoId} "su - ${repoId} -c 'npx serve -s ${deployDirectory} -l ${port}'"`
-        child.execSync(`echo ${command} >> ${repoId}.sh`);
-        child.execSync(`chmod +x ${repoId}.sh`);
+        child.execSync(`echo ${command} >> /home/${repoId}/run.sh`);
+        child.execSync(`chmod +x /home/${repoId}/run.sh`);
         child.execSync(command) //Serving the FrontEnd
         setProgress(repoId,600);
         // child.execSync(`rm -r /home/${repoId}/node_modules/`);3
@@ -127,7 +128,25 @@ async function finalDeploy({ repoId, type, filePath, buildCommand, deployDirecto
         console.log("FrontEnd deployed successfully on "+repoId+" at port "+port+"with domain "+repoId+".server.ddks.live")
         return "FrontEnd deployed successfully on "+repoId+" at port "+port+"with domain "+repoId+".server.ddks.live";
     }
+    else{
+        let port=await reservePort(repoId,deployDirectory,1)
+
+        // child.execSync(`su - ${repoId} -c "bash -l -c '${buildCommand}'"`)
+        await setProgress(repoId,500)
+        await getProgress(repoId, (result) => {
+            console.log("Now Status :"+ result)
+          });
+        let command=`tmux new-session -d -s ${repoId} "su - ${repoId} -c 'PORT=${port} ${buildCommand}'"`;
+        child.execSync(`echo ${command} >> /home/${repoId}/run.sh`);
+        child.execSync(`chmod +x /home/${repoId}/run.sh`);
+        child.execSync(command) ;
+        setProgress(repoId,600); 
+        console.log("FrontEnd deployed successfully on "+repoId+" at port "+port+"with domain "+repoId+".server.ddks.live")
+        return "FrontEnd deployed successfully on "+repoId+" at port "+port+"with domain "+repoId+".server.ddks.live";
+    }
+
 }
+
 
 module.exports = {
     deployRepo,

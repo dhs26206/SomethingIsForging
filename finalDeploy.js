@@ -94,12 +94,85 @@ server {
     return port;
 }
 
+async function configureNginxBackend(id, port) {
+    const domain = `${id}.server.ddks.live`;
+    const user=id;
+    // const dir=deployDirectory;
+    const nginxConfig = `
+server {
+    listen 80;
+    server_name ${domain};
+
+    # Redirect all HTTP requests to HTTPS
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+server {
+    listen 443 ssl;
+    server_name ${domain};
+
+    # SSL configuration
+    ssl_certificate /etc/letsencrypt/live/server.ddks.live/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/server.ddks.live/privkey.pem;
+
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_prefer_server_ciphers on;
+
+    # Reverse proxy to localhost:${port}
+    location / {
+        proxy_pass http://localhost:${port};
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # Serve static assets from the reverse-proxied application if needed
+    location /static/ {
+        proxy_pass http://localhost:${port};
+        expires 30d;
+        add_header Cache-Control "public, no-transform";
+    }
+
+    # Optionally set some caching for static files (optional for performance)
+    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg)$ {
+        expires 30d;
+        add_header Cache-Control "public, no-transform";
+    }
+}
+
+`;
+
+    const configPath = `/etc/nginx/sites-available/${domain}`;
+    fs.writeFileSync(configPath, nginxConfig);
+
+    // Create symbolic link to enable site
+    const enabledPath = `/etc/nginx/sites-enabled/${domain}`;
+    if (!fs.existsSync(enabledPath)) {
+        execSync(`ln -s ${configPath} ${enabledPath}`);
+    }
+
+    
+    
+
+    // Reload Nginx
+    execSync(`sudo setfacl -m u:www-data:rx /home/${user}`)
+    execSync('nginx -t && systemctl reload nginx');
+
+    return port;
+}
+
+
 
 
 // Main function
-async function reservePort(id,deployDirectory) {
+async function reservePort(id,deployDirectory,type) {
     const port =await findFreePort();
-    return (await configureNginxFrontEndStatic(id,port,deployDirectory));
+    if(type===0) return (await configureNginxFrontEndStatic(id,port,deployDirectory));
+    else return (await configureNginxBackend(id,port))
 }
+    
 
 module.exports = {reservePort,isPortInUse,findFreePort};
