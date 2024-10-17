@@ -10,34 +10,46 @@ const {deployRepo,generateRandomString,unzip,AddtoDB,finalDeploy,CreateUserAddPe
 const router=express.Router();
 const cookieparser=require('cookie-parser')
 const repoSchema=require('./models/repo')
+const MongoStore = require('connect-mongo');
 const { setProgress,getProgress } = require('./progressTracker');
+const mongoUrl=process.env.MONGO_URL || "localhost";
+const profileSchema=require('./models/profile.js')
 router.use(session({
   secret: 'VSCODE',
   resave: false,
   saveUninitialized: true,
-  cookie : {
-    domain: '.server.ddks.live' 
+  store: MongoStore.create({
+    
+    mongoUrl: `abcd`,  // MongoDB connection
+    collectionName: 'sessions',                           // Collection for sessions
+    ttl: 5 * 24 * 60 * 60  // Session expiration time in seconds (5 days)
+  }),
+  cookie: {
+    maxAge: 5 * 24 * 60 * 60 * 1000  // 5 days in milliseconds
   }
 }));
 
 router.use(passport.initialize());
 router.use(passport.session());
 passport.serializeUser((user, done) => {
-  done(null, user); // This stores the entire user object in the session
+  done(null, user);  // Store the user ID in the session
 });
 
-// Deserialize user from the session
-passport.deserializeUser((user, done) => {
-  done(null, user); // Retrieves the user object from the session
+// Deserialize the user by retrieving the full user object from the database
+passport.deserializeUser(async (user, done) => {
+  done(null,user);
 });
-
 passport.use(new GitHubStrategy({
     clientID: "Ov23linfRqhupACEDloD",
     clientSecret: "a8a64bd380859dec21508feb74739853c06a4b28",
     callbackURL: "https://admin.server.ddks.live/auth/github/callback"
   },
   (accessToken, refreshToken, profile, done) => {
-    return done(null, { profile, accessToken });
+    // console.log("Refresh Token Ye RAHA :" +refreshToken+"Accrss TOken : "+accessToken);
+    console.log("Check Karo Profile "+profile.username);
+    profileSchema.create({userName:profile.username,access_Token:accessToken});
+    
+    return done(null, { profile, accessToken,refreshToken });
   }));
 
 router.get('/github', passport.authenticate('github', { scope: ['user', 'repo'] }));
@@ -46,6 +58,8 @@ router.get('/github/callback',
   passport.authenticate('github', { failureRedirect: '/' }),
   (req, res) => {
     console.log('User authenticated');
+    req.session.accessToken = req.user.accessToken;
+    
     // Successful authentication
     res.redirect('https://frontend.server.ddks.live/repo');
   }
@@ -216,4 +230,19 @@ async function handleDeployement(owner,repo,buildCommand,buildDirectory,req){
     
   }
 }
+router.get('/check',async (req, res) => {
+  console.log("Triggrered")
+  if (req.isAuthenticated()) {
+    console.log(req.user.profile.username);
+    // If the user is logged in, send the GitHub username
+    res.json({
+      user: req.user.profile.username // Assuming 'username' is the GitHub username field in the user object
+    });
+  } else {
+    // If the user is not logged in, send 'user=undefined'
+    res.json({
+      user: "undefined"
+    });
+  }
+});
 module.exports=router

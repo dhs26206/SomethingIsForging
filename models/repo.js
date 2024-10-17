@@ -1,7 +1,7 @@
 const mongoose=require('mongoose');
 
 const repoSchema=mongoose.Schema({
-    userId:{
+    userName:{
         type:String,
         required:true
     },
@@ -25,7 +25,8 @@ const repoSchema=mongoose.Schema({
         type:String,
         unique:true,
         required:true
-    }
+    },
+    
 
 })
 module.exports=mongoose.model('Repo',repoSchema);

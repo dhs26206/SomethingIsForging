@@ -23,7 +23,7 @@ async function deploy() {
     console.log("Mait Yaha Aaya");
   try {
     // Check if the repo record exists (replace with your actual DB call)
-    // let record = await repoSchema.findOne({ userId: owner, repoName: repo });
+    let record = await repoSchema.findOne({userName: owner, repoName: repo });
     record=false;
 
     if (record) {
@@ -47,6 +47,7 @@ async function deploy() {
 
     } else {
       // Handle new deployment
+      await repoSchema.create({username:owner,repoName:repo,type:"Frontend",buildCommand,deployDirectory,uniqueId:repoId})
       const repoUrl = `https://api.github.com/repos/${owner}/${repo}/zipball`;
       const outputPath = path.join(__dirname, `../artifacts/${repo}.zip`);
       // const repoId = generateRandomString(9);

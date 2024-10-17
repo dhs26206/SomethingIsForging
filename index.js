@@ -45,7 +45,7 @@ const mongoUrl=process.env.MONGO_URL || "localhost";
 const mongoConnection=async()=>{
     try{
 
-        await mongoose.connect(`mongodb+srv://ddks:${encodeURIComponent(process.env.MONGO_PASSWORD)}@${mongoUrl}/`);
+        await mongoose.connect(`mongodb+srv://ddks:${encodeURIComponent(process.env.MONGO_PASSWORD)}@${mongoUrl}/forging`);
         console.log(`mongo connected!!`);
     }
     catch(err){
