@@ -49,10 +49,10 @@ async function TransferRepo({ repoId, type, filePath, buildCommand, deployDirect
     const folderName = dirs[0];
     console.log("3");
     const folderPath = path.join(filePath, folderName);
-    child.execSync("mv "+folderPath+"/*"+" /home/"+repoId) 
-    const command = 'ls -l /root/project/scripts'; 
-    const output = child.execSync(command, { encoding: 'utf-8' });
-    console.log(output);
+    child.execSync("rsync -av "+folderPath+"/"+" /home/"+repoId+"/") 
+    // const command = 'ls -l /root/project/scripts'; 
+    // const output = child.execSync(command, { encoding: 'utf-8' });
+    // console.log(output);
     child.execSync("bash /root/project/scripts/restrict_ReadWrite.sh "+repoId)
     console.log("4");
 }
@@ -94,53 +94,81 @@ async function deployRepo(repoId,type,buildCommand,deployDirectory,filePath){
     // }.
     finalDeploy(repoId,type,buildCommand,deployDirectory,filePath);
 }
-async function finalDeploy({ repoId, type, filePath, buildCommand, deployDirectory }){
+async function finalDeploy({ repoId, type, filePath, buildCommand, deployDirectory ,statusId }){
     console.log("Final Deployement Started")
         // child.execSync("su - "+repoId+" -c 'npm install --no-save --no-package-lock --no-progress'") 
-        await setProgress(repoId,300);
-        await getProgress(repoId, (result) => {
+        await setProgress(statusId,300);
+        await getProgress(statusId, (result) => {
             console.log("Now Status :"+ result)
           });
     
         child.execSync("su - "+repoId+" -c 'pnpmddks install --no-save'") 
-        await setProgress(repoId,400)
-        await getProgress(repoId, (result) => {
+        await setProgress(statusId,400)
+        await getProgress(statusId, (result) => {
             console.log("Now Status :"+ result)
           });
     
-    if(type==="FrontEnd"){
+    if(type==="frontend"){
         
         child.execSync(`su - ${repoId} -c "bash -l -c '${buildCommand}'"`)
-        let port=await reservePort(repoId,deployDirectory,0) // 0 depicting Frontend
-        await setProgress(repoId,500)
-        await getProgress(repoId, (result) => {
+        let port=0;
+        if(repoId===statusId)  port=await reservePort(repoId,deployDirectory,0) // 0 depicting Frontend
+        else child.execSync(`sudo setfacl -m u:www-data:rx /home/${repoId}`) 
+        await setProgress(statusId,500)
+        await getProgress(statusId, (result) => {
             console.log("Now Status :"+ result)
           });
-    
+          let killIfExist=`tmux kill-session -t ${repoId} 2>/dev/null`;
+          try {
+            child.execSync(killIfExist);
+            console.log(`Killed tmux session: ${repoId}`);
+          } catch (error) {
+            if (error.status === 1) {
+              // This error status occurs when the tmux session does not exist
+              console.log(`Tmux session ${repoId} does not exist or was already terminated.`);
+            } else {
+              // Handle other errors (permissions issues, etc.)
+              console.error('Error killing tmux session:', error.message);
+            }
+          }
         let command=`tmux new-session -d -s ${repoId} "su - ${repoId} -c 'npx serve -s ${deployDirectory} -l ${port}'"`
-        child.execSync(`echo ${command} >> /home/${repoId}/run.sh`);
+        child.execSync(`echo ${command} > /home/${repoId}/run.sh`);
         child.execSync(`chmod +x /home/${repoId}/run.sh`);
         child.execSync(command) //Serving the FrontEnd
-        setProgress(repoId,600);
+        setProgress(statusId,600);
         // child.execSync(`rm -r /home/${repoId}/node_modules/`);3
         // child.execSync(`su - ${repoId} -c "bash -l -c 'rm -r node_modules/'"`)
         
-        console.log("FrontEnd deployed successfully on "+repoId+" at port "+port+"with domain "+repoId+".server.ddks.live")
-        return "FrontEnd deployed successfully on "+repoId+" at port "+port+"with domain "+repoId+".server.ddks.live";
+        console.log("FrontEnd deployed successfully on "+repoId+" at port "+port+" with domain "+repoId+".server.ddks.live")
+        return "FrontEnd deployed successfully on "+repoId+" at port "+port+" with domain "+repoId+".server.ddks.live";
     }
     else{
         let port=await reservePort(repoId,deployDirectory,1)
 
         // child.execSync(`su - ${repoId} -c "bash -l -c '${buildCommand}'"`)
-        await setProgress(repoId,500)
-        await getProgress(repoId, (result) => {
+        await setProgress(statusId,500)
+        await getProgress(statusId, (result) => {
             console.log("Now Status :"+ result)
           });
+        let killIfExist=`tmux kill-session -t ${repoId} 2>/dev/null`;
+        // child.execSync(killIfExist);
+        try {
+            child.execSync(killIfExist);
+            console.log(`Killed tmux session: ${repoId}`);
+          } catch (error) {
+            if (error.status === 1) {
+              // This error status occurs when the tmux session does not exist
+              console.log(`Tmux session ${repoId} does not exist or was already terminated.`);
+            } else {
+              // Handle other errors (permissions issues, etc.)
+              console.error('Error killing tmux session:', error.message);
+            }
+          }
         let command=`tmux new-session -d -s ${repoId} "su - ${repoId} -c 'PORT=${port} ${buildCommand}'"`;
-        child.execSync(`echo ${command} >> /home/${repoId}/run.sh`);
+        child.execSync(`echo ${command} > /home/${repoId}/run.sh`);
         child.execSync(`chmod +x /home/${repoId}/run.sh`);
         child.execSync(command) ;
-        setProgress(repoId,600); 
+        setProgress(statusId,600); 
         console.log("FrontEnd deployed successfully on "+repoId+" at port "+port+"with domain "+repoId+".server.ddks.live")
         return "FrontEnd deployed successfully on "+repoId+" at port "+port+"with domain "+repoId+".server.ddks.live";
     }

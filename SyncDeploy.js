@@ -1,12 +1,25 @@
-const { exec } = require('child_process');
+const { exec, execSync } = require('child_process');
 const { setProgress, getProgress } = require('./progressTracker');
 const { deployRepo, generateRandomString, unzip, AddtoDB, finalDeploy, CreateUserAddPermission, TransferRepo } = require('./newDeploy.js');
-const [owner, repo, buildCommand, buildDirectory, accessToken,username,repoId] = process.argv.slice(2);
+const [owner, repo, buildCommand, buildDirectory, accessToken,username,repoId,type,node_id] = process.argv.slice(2);
 const fs = require('fs');
 const path = require('path');
-console.log("Mai Chal Gata")
+const mongoose=require('mongoose');
+console.log("Mai Chal Gaya")
 const repoSchema=require('./models/repo')
-// Wrap exec in a promise so you can use await
+
+const mongoConnection=async()=>{
+  try{
+
+      await mongoose.connect(`mongodb+srv://ddks:${encodeURIComponent(process.env.MONGO_PASSWORD)}@${process.env.MONGO_URL }/forging`);
+      console.log(`mongo connected!! Sync Deploy Wala`);
+  }
+  catch(err){
+      console.log(`mongo connecteion err!! ${err}`);
+  }
+}
+mongoConnection();
+
 function execCommand(command) {
   return new Promise((resolve, reject) => {
     exec(command, (error, stdout, stderr) => {
@@ -20,64 +33,74 @@ function execCommand(command) {
 }
 
 async function deploy() {
-    console.log("Mait Yaha Aaya");
+    console.log("Mai Yaha Aaya");
   try {
-    // Check if the repo record exists (replace with your actual DB call)
+    
     let record = await repoSchema.findOne({userName: owner, repoName: repo });
-    record=false;
-
+    
+    const deployDirectory = buildDirectory || "build";
+    let statusId=repoId;
     if (record) {
-      // Handle redeployment if record exists
-      let User = record.userId;
+      
+      let User = record.userName;
       let prevRepo = record.uniqueId;
       let buildCommand = record.buildCommand;
       let buildDirectory = record.buildDirectory;
       let type = record.type;
-      // let repoId = generateRandomString(9);
+      
       let repoUrl = `https://api.github.com/repos/${owner}/${repo}/zipball`;
       let outputPath = path.join(__dirname, `../artifacts/${repo}.zip`);
-
-      // Download repo using curl
+      setProgress(statusId, 100);
+      
       await execCommand(`curl -L -H "Authorization: token ${accessToken}" ${repoUrl} -o ${outputPath}`);
 
-      // Unzip and transfer the repo
-      const WantToDeploy = await unzip(outputPath, repoId);
-      await TransferRepo(prevRepo, type, buildCommand, buildDirectory, WantToDeploy);
-      await finalDeploy(repoId, type, buildCommand, buildDirectory, WantToDeploy);
-
+      await setProgress(statusId, 200);
+      await getProgress(statusId, (result) => {
+        console.log("Now Status :"+ 200)
+      });
+      let cleanFolder = path.join(__dirname, `../artifacts/${prevRepo}`);
+      if (fs.existsSync(cleanFolder)) {
+        execSync(`rm -r ${cleanFolder}`);
+        console.log(`Removed folder: ${cleanFolder}`);
     } else {
-      // Handle new deployment
-      await repoSchema.create({username:owner,repoName:repo,type:"Frontend",buildCommand,deployDirectory,uniqueId:repoId})
+        console.log(`Folder does not exist: ${cleanFolder}`);
+    }
+      
+      const WantToDeploy = await unzip(outputPath, repoId);
+      await TransferRepo({ repoId: prevRepo, type: type, filePath: WantToDeploy, buildCommand: buildCommand, deployDirectory: buildDirectory,statusId });
+      await finalDeploy({ repoId: prevRepo, type: type, filePath: WantToDeploy, buildCommand: buildCommand, deployDirectory: buildDirectory,statusId });
+
+    } else { // Handle new deployment
+      
+
+      await repoSchema.create({userName:owner,repoName:repo,type,buildCommand,deployDirectory,uniqueId:repoId,node_id})
       const repoUrl = `https://api.github.com/repos/${owner}/${repo}/zipball`;
       const outputPath = path.join(__dirname, `../artifacts/${repo}.zip`);
-      // const repoId = generateRandomString(9);
       
-      // Set initial progress
-      setProgress(repoId, 100);
+      
+      setProgress(statusId, 100);
 
-      // Download repo using curl
       await execCommand(`curl -L -H "Authorization: token ${accessToken}" ${repoUrl} -o ${outputPath}`);
 
-      // Prepare deployment details
+      
       const userId = username || "default";
-      const type = "FrontEnd";
+      
       const buildCmd = buildCommand || "npm run build";
-      const deployDirectory = buildDirectory || "build";
+      
 
       console.log(repoId, userId, type, buildCmd, deployDirectory);
 
       // Unzip, Add to DB, and Deploy
       const WantToDeploy = await unzip(outputPath, repoId);
-      await setProgress(repoId, 200);
-      await getProgress(repoId, (result) => {
+      await setProgress(statusId, 200);
+      await getProgress(statusId, (result) => {
         console.log("Now Status :"+ 200)
       });
 
-      // Uncomment once the DB call is ready
-      // await AddtoDB(repoId, userId, type, repo, buildCmd, deployDirectory);
+      
       await CreateUserAddPermission(repoId, userId, type, repo, buildCmd, deployDirectory);
-      await TransferRepo({ repoId: repoId, type: type, filePath: WantToDeploy, buildCommand: buildCmd, deployDirectory: deployDirectory });
-      await finalDeploy({ repoId: repoId, type: type, filePath: WantToDeploy, buildCommand: buildCmd, deployDirectory: deployDirectory });
+      await TransferRepo({ repoId: repoId, type: type, filePath: WantToDeploy, buildCommand: buildCmd, deployDirectory: deployDirectory,statusId});
+      await finalDeploy({ repoId: repoId, type: type, filePath: WantToDeploy, buildCommand: buildCmd, deployDirectory: deployDirectory,statusId });
     }
 
   } catch (error) {
@@ -85,5 +108,5 @@ async function deploy() {
     console.error("Deployment failed: ", error);
   }
 }
-console.log("oijeghojntphg")
+
 deploy();

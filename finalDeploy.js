@@ -15,13 +15,22 @@ async function isPortInUse(port) {
 }
 
 async function findFreePort() {
-    for (let port = PORT_RANGE_START; port <= PORT_RANGE_END; port++) {
-        let response = await isPortInUse(port)
-        if (!response) {
-            return port;
+    try {
+        // Read the starting port value asynchronously
+        const data = fs.readFileSync('variable.txt', 'utf-8');
+        let port_start = parseInt(data.trim(), 10);
+
+        for (let port = port_start; port <= PORT_RANGE_END; port++) {
+            let response = await isPortInUse(port);
+            if (!response) {
+                // Write the new port back to variable.txt
+                fs.writeFileSync('variable.txt', port.toString());
+                return port; // Return the free port
+            }
         }
+    } catch (err) {
+        console.error("Error reading or writing the file:", err);
     }
-    
 }
 
 async function configureNginxFrontEndStatic(id, port,deployDirectory) {
@@ -169,7 +178,9 @@ server {
 
 // Main function
 async function reservePort(id,deployDirectory,type) {
+    
     const port =await findFreePort();
+    console.log(`Reserve Port In Final Depoy Triggered ${id} ${deployDirectory} ${type}`)
     if(type===0) return (await configureNginxFrontEndStatic(id,port,deployDirectory));
     else return (await configureNginxBackend(id,port))
 }

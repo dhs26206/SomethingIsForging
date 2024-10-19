@@ -26,7 +26,11 @@ const repoSchema=mongoose.Schema({
         unique:true,
         required:true
     },
-    
+    node_id:{
+        type:String,
+        unique:true,
+        required:true
+    }
 
 })
 module.exports=mongoose.model('Repo',repoSchema);
