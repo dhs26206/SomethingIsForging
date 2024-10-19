@@ -143,7 +143,31 @@ async function finalDeploy({ repoId, type, filePath, buildCommand, deployDirecto
         return "FrontEnd deployed successfully on "+repoId+" at port "+port+" with domain "+repoId+".server.ddks.live";
     }
     else{
-        let port=await reservePort(repoId,deployDirectory,1)
+         let execFilePath=`/home/${repoId}/run.sh`
+         let port=5050;
+         if(statusId!=repoId && fs.existsSync(execFilePath)){
+              let killIfExist=`tmux kill-session -t ${repoId} 2>/dev/null`;
+              try {
+                child.execSync(killIfExist);
+                console.log(`Killed tmux session: ${repoId}`);
+              } catch (error) {
+                if (error.status === 1) {
+                  // This error status occurs when the tmux session does not exist
+                  console.log(`Tmux session ${repoId} does not exist or was already terminated.`);
+                } else {
+                  // Handle other errors (permissions issues, etc.)
+                  console.error('Error killing tmux session:', error.message);
+                }
+              }
+              child.execSync(execFilePath);
+              await setProgress(statusId,600);
+              return "FrontEnd deployed successfully on "+repoId+ "with domain "+repoId+".server.ddks.live";
+         }
+         else{
+          port=await reservePort(repoId,deployDirectory,1)
+         }
+
+         
 
         // child.execSync(`su - ${repoId} -c "bash -l -c '${buildCommand}'"`)
         await setProgress(statusId,500)
@@ -165,12 +189,13 @@ async function finalDeploy({ repoId, type, filePath, buildCommand, deployDirecto
             }
           }
         let command=`tmux new-session -d -s ${repoId} "su - ${repoId} -c 'PORT=${port} ${buildCommand}'"`;
-        child.execSync(`echo ${command} > /home/${repoId}/run.sh`);
+        child.execSync(`echo ${killIfExist} > /home/${repoId}/run.sh`)
+        child.execSync(`echo ${command} >> /home/${repoId}/run.sh`);
         child.execSync(`chmod +x /home/${repoId}/run.sh`);
         child.execSync(command) ;
         setProgress(statusId,600); 
-        console.log("FrontEnd deployed successfully on "+repoId+" at port "+port+"with domain "+repoId+".server.ddks.live")
-        return "FrontEnd deployed successfully on "+repoId+" at port "+port+"with domain "+repoId+".server.ddks.live";
+        console.log("FrontEnd deployed successfully on "+repoId+" at port "+port+" with domain "+repoId+".server.ddks.live")
+        return "FrontEnd deployed successfully on "+repoId+" at port "+port+" with domain "+repoId+".server.ddks.live";
     }
 
 }

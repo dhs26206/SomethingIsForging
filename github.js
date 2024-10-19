@@ -16,6 +16,8 @@ const mongoUrl=process.env.MONGO_URL || "localhost";
 const profileSchema=require('./models/profile.js');
 const { randomInt } = require('crypto');
 const repo = require('./models/repo');
+const HashMap=require('./hashmap.js');
+const statusIdMap=new HashMap();
 router.use(session({
   secret: 'VSCODE',
   resave: false,
@@ -242,4 +244,69 @@ router.get("/list",async (req,res)=>{
     
   
 })
+router.post("/logs",async(req,res)=>{
+  const id=req.body.id;
+  let textfile=null;
+  if (!req.isAuthenticated()) {
+    return res.sendStatus(401);
+  }
+  if(!statusIdMap.has(id)){
+    try{
+      const reposResponse = await axios.get(`https://api.github.com/repos/${owner}/${repo}`, {
+        headers: {
+          Authorization: `Bearer ${req.user.accessToken}`,
+        }
+      });
+      statusIdMap.add(id,reposResponse.data.id);
+      textfile=reposResponse.data.id
+      
+    }
+    catch(error){
+      return res.sendStatus(404);
+    }
+
+  }
+  else{
+    textfile=statusIdMap.get(id);
+  }
+  let logFilePath=fs.join(__dirname,`../logs/${textfile}.txt`);
+  const lastPosition = parseInt(req.body.index, 10) || 0;
+  
+
+    // Open the file and read from the last known position
+    try {
+      const stats = fs.statSync(logFilePath);
+  
+      // If file size is smaller than the last position (e.g., log file was truncated), reset lastPosition
+      if (stats.size < lastPosition) {
+          return res.json({ newLogs: '', newPosition: 0 });
+      }
+  
+      // Open the file synchronously
+      const fd = fs.openSync(logFilePath, 'r');
+  
+      // Create a buffer to store the new log content
+      const buffer = Buffer.alloc(stats.size - lastPosition);
+  
+      // Read the log file from the last known position synchronously
+      const bytesRead = fs.readSync(fd, buffer, 0, buffer.length, lastPosition);
+  
+      // Convert the buffer to a string
+      const newLogs = buffer.toString('utf8', 0, bytesRead);
+  
+      // Close the file descriptor synchronously
+      fs.closeSync(fd);
+  
+      // Send the new log data and updated position
+      res.json({ newLogs, newPosition: stats.size });
+  
+      } catch (err) {
+          console.error('Error:', err);
+          return res.status(500).send('Error reading log file');
+      }
+  
+});  
+  
+
+
 module.exports=router
