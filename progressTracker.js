@@ -24,7 +24,7 @@ const getProgress = async (userId, callback) => {
     callback(result || "No progress yet");
   } catch (error) {
     console.error('Error getting progress:', error);
-    callback("Error getting progress");
+    callback("Error Getting Progress");
   }
 };
 
