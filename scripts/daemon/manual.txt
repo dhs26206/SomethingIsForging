@@ -1,0 +1,36 @@
+
+Make this monitor.sh at /bin
+
+then : chmod +x /bin/monitor.sh
+
+mkdir /etc/monitor-service
+
+touch /etc/monitor-service/allowd.txt
+
+sudo nano /etc/systemd/system/user-monitor.service
+
+Under nano ,Copy this ::
+
+[Unit]
+Description=Monitor and kill users exceeding CPU and memory usage
+
+[Service]
+ExecStart=/bin/monitor.sh
+Restart=always
+User=root
+
+[Install]
+WantedBy=multi-user.target
+
+
+::
+
+Then finally 
+
+sudo systemctl daemon-reload
+sudo systemctl start user-monitor.service
+sudo systemctl enable user-monitor.service
+
+
+Done , Thanks for spending your priceless moments with this file.
+

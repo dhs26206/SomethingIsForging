@@ -7,17 +7,29 @@ const {reservePort} = require('./finalDeploy');
 const { Console } = require('console')
 const { setProgress,getProgress } = require('./progressTracker');
 function generateRandomString(length) {
-    return crypto.randomBytes(length)
-      .toString('base64')
-      .slice(0, length)
-      .replace(/\+/g, '0')  // Replace + with 0 to avoid URL-unsafe characters
-      .replace(/\//g, '0'); // Replace / with 0
+  const lettersAndNumbers = 'abcdefghijklmnopqrstuvwxyz0123456789';
+  const letters = 'abcdefghijklmnopqrstuvwxyz';  // To ensure the string doesn't end with a number
+  let result = '';
+
+  const lastCharIndex = Math.floor(Math.random() * letters.length);
+  result += letters[lastCharIndex];
+  // Generate all characters except the last one
+  for (let i = 0; i < length - 1; i++) {
+      const randomIndex = Math.floor(Math.random() * lettersAndNumbers.length);
+      result += lettersAndNumbers[randomIndex];
   }
+
+  // Ensure the last character is a letter
+
+  return result;
+}
+
 
 async function unzip(filePath,foldername){
 
   const outputPath=path.join(__dirname, `../artifacts/`+foldername);
-  console.log("Folder ye raha "+outputPath)
+  // console.log("Folder ye raha "+outputPath)
+  console.log("Unzipping The Repo !!")
   const command='unzip '+filePath+' -d '+outputPath
   child.execSync(command)
   return outputPath
@@ -39,22 +51,23 @@ async function CreateUserAddPermission(repoId,type,buildCommand,deployDirectory,
     
     child.execSync("scripts/restrict_command.sh "+repoId)
     child.execSync("scripts/adduser.sh "+repoId)
-    console.log("Base User and Permission Made")
+    console.log("Created User and Restriction and Permission has been Configured")
 
 }
 async function TransferRepo({ repoId, type, filePath, buildCommand, deployDirectory }){
-    console.log("Transfer Repo Started")
+    console.log("Transfer to Deployment Folder Initiated !!")
     const files=fs.readdirSync(filePath);
     const dirs = files.filter(file => fs.statSync(path.join(filePath, file)).isDirectory());
     const folderName = dirs[0];
-    console.log("3");
+    // console.log("3");
     const folderPath = path.join(filePath, folderName);
     child.execSync("rsync -av "+folderPath+"/"+" /home/"+repoId+"/") 
     // const command = 'ls -l /root/project/scripts'; 
     // const output = child.execSync(command, { encoding: 'utf-8' });
     // console.log(output);
     child.execSync("bash /root/project/scripts/restrict_ReadWrite.sh "+repoId)
-    console.log("4");
+    console.log("Transferred !!")
+    // console.log("4");
 }
 
 async function deployRepo(repoId,type,buildCommand,deployDirectory,filePath){
@@ -98,26 +111,33 @@ async function finalDeploy({ repoId, type, filePath, buildCommand, deployDirecto
     console.log("Final Deployement Started")
         // child.execSync("su - "+repoId+" -c 'npm install --no-save --no-package-lock --no-progress'") 
         await setProgress(statusId,300);
-        await getProgress(statusId, (result) => {
-            console.log("Now Status :"+ result)
-          });
-    
-        child.execSync("su - "+repoId+" -c 'pnpmddks install --no-save'") 
+        // await getProgress(statusId, (result) => {
+        //     console.log("Now Status :"+ result)
+        //   });
+        console.log("Installing/Updating Dependencies");
+        try {
+          const output = execSync(`su - ${repoId} -c 'pnpmddks install --no-frozen-lockfile --silent --prod'`, { encoding: 'utf8' });
+          console.log(output);
+          console.log("Dependencies Installed SuccessFully !!")
+          } catch (error) {
+              console.error("Error during pnpm installation:", error.message);
+          }
         await setProgress(statusId,400)
-        await getProgress(statusId, (result) => {
-            console.log("Now Status :"+ result)
-          });
+        // await getProgress(statusId, (result) => {
+        //     console.log("Now Status :"+ result)
+        //   });
+        
     
     if(type==="frontend"){
-        
+        console.log("Building the Frontend for Serving Files !!")
         child.execSync(`su - ${repoId} -c "bash -l -c '${buildCommand}'"`)
         let port=0;
         if(repoId===statusId)  port=await reservePort(repoId,deployDirectory,0) // 0 depicting Frontend
         else child.execSync(`sudo setfacl -m u:www-data:rx /home/${repoId}`) 
         await setProgress(statusId,500)
-        await getProgress(statusId, (result) => {
-            console.log("Now Status :"+ result)
-          });
+        // await getProgress(statusId, (result) => {
+        //     console.log("Now Status :"+ result)
+        //   });
           let killIfExist=`tmux kill-session -t ${repoId} 2>/dev/null`;
           try {
             child.execSync(killIfExist);
@@ -131,16 +151,17 @@ async function finalDeploy({ repoId, type, filePath, buildCommand, deployDirecto
               console.error('Error killing tmux session:', error.message);
             }
           }
-        let command=`tmux new-session -d -s ${repoId} "su - ${repoId} -c 'npx serve -s ${deployDirectory} -l ${port}'"`
+        let command=`tmux new-session -d -s ${repoId} "su - ${repoId} -c 'npm -v'"`
         child.execSync(`echo ${command} > /home/${repoId}/run.sh`);
         child.execSync(`chmod +x /home/${repoId}/run.sh`);
         child.execSync(command) //Serving the FrontEnd
         setProgress(statusId,600);
+        child.execSync(`echo ${repoId} >> /etc/user-monitor/allowed.txt`)
         // child.execSync(`rm -r /home/${repoId}/node_modules/`);3
         // child.execSync(`su - ${repoId} -c "bash -l -c 'rm -r node_modules/'"`)
         
-        console.log("FrontEnd deployed successfully on "+repoId+" at port "+port+" with domain "+repoId+".server.ddks.live")
-        return "FrontEnd deployed successfully on "+repoId+" at port "+port+" with domain "+repoId+".server.ddks.live";
+        console.log("FrontEnd deployed successfully on "+repoId+" with domain "+repoId+".server.ddks.live")
+        return "FrontEnd deployed successfully on "+repoId+"  with domain "+repoId+".server.ddks.live";
     }
     else{
          let execFilePath=`/home/${repoId}/run.sh`
@@ -194,6 +215,8 @@ async function finalDeploy({ repoId, type, filePath, buildCommand, deployDirecto
         child.execSync(`chmod +x /home/${repoId}/run.sh`);
         child.execSync(command) ;
         setProgress(statusId,600); 
+        
+        child.execSync(`echo ${repoId} >> /etc/user-monitor/allowed.txt`)
         console.log("FrontEnd deployed successfully on "+repoId+" at port "+port+" with domain "+repoId+".server.ddks.live")
         return "FrontEnd deployed successfully on "+repoId+" at port "+port+" with domain "+repoId+".server.ddks.live";
     }
