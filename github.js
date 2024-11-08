@@ -15,10 +15,12 @@ const { setProgress,getProgress } = require('./progressTracker');
 const mongoUrl=process.env.MONGO_URL || "localhost";
 const profileSchema=require('./models/profile.js');
 const { randomInt } = require('crypto');
+const crypto=require('crypto')
 const repo = require('./models/repo');
 const HashMap=require('./hashmap.js');
 const { generateWebhookSecret } = require('./services/webhook.js');
 const statusIdMap=new HashMap();
+require('dotenv').config();
 
 function getISTTime() {
   // Get the current time in UTC and convert it to IST by adding 5 hours and 30 minutes
@@ -45,7 +47,7 @@ function getISTTime() {
 }
 
 console.log(getISTTime());
-
+// console.log(process.env.GITHUB_CLIENT_SECRET);
 router.use(session({
   secret: 'VSCODE',
   resave: false,
@@ -401,21 +403,27 @@ router.get('/delete/:id',async(req,res)=>{
 router.post("/webhook/:owner/:repoName",async (req,res)=>{
     const { owner, repoName } = req.params;
     const secret = generateWebhookSecret(owner, repoName); // Generate the same secret
-    const signature = req.headers['x-hub-signature-256']; // Get the signature from the header
+    const signature = req.headers['x-hub-signature-256']; // Use lowercase for header keys
+    const isPing = req.headers['x-github-event']; 
+    if(isPing==='ping') {res.sendStatus(200);console.log("Pinged Baby!!");return;}
     const payload = JSON.stringify(req.body); // Get the payload
 
+    console.log("Me Triggered Baby "+owner+" "+signature)
     // Create HMAC hash for the payload
     const hmac = crypto.createHmac('sha256', secret);
     const digest = `sha256=${hmac.update(payload).digest('hex')}`;
 
     // Verify the signature
     if (signature === digest) {
+      
         console.log('Valid signature. Processing the payload...');
         const rep=await profileSchema.findOne({userName:owner});
         const access_Token=rep.access_Token;
         const details=await repoSchema.findOne({userName:owner,repoName});
+        const bin_Id=generateRandomString(8);
         if(details){
-          try{let command = `node ${path.resolve(__dirname, 'SyncDeploy.js')} ${owner} ${repoName} "" "" "${access_Token}" "${owner}" "" "" ""`;
+          try{
+          let command = `node ${path.resolve(__dirname, 'SyncDeploy.js')} "${owner}" "${repoName}" "" "" "${access_Token}" "${owner}" "${bin_Id}" "" ""`;
           const node_id=details.node_id;
           const outputStream = fs.createWriteStream(`../logs/${node_id}.txt`, { flags: 'a' });
           const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));

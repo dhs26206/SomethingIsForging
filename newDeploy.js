@@ -60,8 +60,10 @@ async function TransferRepo({ repoId, type, filePath, buildCommand, deployDirect
     const dirs = files.filter(file => fs.statSync(path.join(filePath, file)).isDirectory());
     const folderName = dirs[0];
     // console.log("3");
+    
     const folderPath = path.join(filePath, folderName);
-    child.execSync("rsync -av "+folderPath+"/"+" /home/"+repoId+"/") 
+    // console.log(`check karo folder ${folderName}  ${folderPath}`)
+    child.execSync("rsync -avc "+folderPath+"/"+" /home/"+repoId+"/") 
     // const command = 'ls -l /root/project/scripts'; 
     // const output = child.execSync(command, { encoding: 'utf-8' });
     // console.log(output);
@@ -116,8 +118,10 @@ async function finalDeploy({ repoId, type, filePath, buildCommand, deployDirecto
         //   });
         console.log("Installing/Updating Dependencies");
         try {
-          const output = execSync(`su - ${repoId} -c 'pnpmddks install --no-frozen-lockfile --silent --prod'`, { encoding: 'utf8' });
+          // const output = child.execSync(`su - ${repoId} -c 'pnpmddks install --no-frozen-lockfile --silent --prod'`, { encoding: 'utf8' });
+          const output = child.execSync( `cd /home/${repoId} && pnpmddks install --no-frozen-lockfile --silent `, { encoding: 'utf8' });
           console.log(output);
+          child.execSync("scripts/restrict_ReadWrite.sh "+repoId)
           console.log("Dependencies Installed SuccessFully !!")
           } catch (error) {
               console.error("Error during pnpm installation:", error.message);
@@ -132,8 +136,8 @@ async function finalDeploy({ repoId, type, filePath, buildCommand, deployDirecto
         console.log("Building the Frontend for Serving Files !!")
         child.execSync(`su - ${repoId} -c "bash -l -c '${buildCommand}'"`)
         let port=0;
-        if(repoId===statusId)  port=await reservePort(repoId,deployDirectory,0) // 0 depicting Frontend
-        else child.execSync(`sudo setfacl -m u:www-data:rx /home/${repoId}`) 
+        port=await reservePort(repoId,deployDirectory,0) // 0 depicting Frontend
+         
         await setProgress(statusId,500)
         // await getProgress(statusId, (result) => {
         //     console.log("Now Status :"+ result)

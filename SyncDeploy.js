@@ -1,11 +1,13 @@
 const { exec, execSync } = require('child_process');
 const { setProgress, getProgress } = require('./progressTracker');
 const {  unzip, finalDeploy, CreateUserAddPermission, TransferRepo } = require('./newDeploy.js');
-const [owner, repo, buildCommand, buildDirectory, accessToken,username,repoId,type,node_id] = process.argv.slice(2);
+let [owner, repo, buildCommand, buildDirectory, accessToken,username,repoId,type,node_id] = process.argv.slice(2);
 const fs = require('fs');
 const path = require('path');
 const mongoose=require('mongoose');
 // console.log("Mai Chal Gaya")
+require('dotenv').config();
+
 const repoSchema=require('./models/repo');
 const { CreateWebHook } = require('./services/webhook.js');
 
@@ -46,10 +48,12 @@ async function deploy() {
       
       let User = record.userName;
       let prevRepo = record.uniqueId;
-      let buildCommand = record.buildCommand;
-      let buildDirectory = record.buildDirectory;
+      buildCommand = record.buildCommand;
+      let RbuildDirectory = record.deployDirectory;
       let type = record.type;
-      execCommand(`sed -i 's/${prevRepo}}//g' /etc/user-monitor/allowed.txt`) //This is command to remove this user from Daemon list !!
+      execCommand(`sed -i 's/${prevRepo}//g' /etc/user-monitor/allowed.txt`)
+      
+       //This is command to remove this user from Daemon list !!
       let repoUrl = `https://api.github.com/repos/${owner}/${repo}/zipball`;
       let outputPath = path.join(__dirname, `../artifacts/${repo}.zip`);
       setProgress(statusId, 100);
@@ -66,15 +70,15 @@ async function deploy() {
     } 
       
       const WantToDeploy = await unzip(outputPath, repoId);
-      await TransferRepo({ repoId: prevRepo, type: type, filePath: WantToDeploy, buildCommand: buildCommand, deployDirectory: buildDirectory,statusId });
-      await finalDeploy({ repoId: prevRepo, type: type, filePath: WantToDeploy, buildCommand: buildCommand, deployDirectory: buildDirectory,statusId });
+      await TransferRepo({ repoId: prevRepo, type: type, filePath: WantToDeploy, buildCommand: buildCommand, deployDirectory: RbuildDirectory,statusId });
+      await finalDeploy({ repoId: prevRepo, type: type, filePath: WantToDeploy, buildCommand: buildCommand, deployDirectory: RbuildDirectory,statusId });
 
     } else { // Handle new deployment
       
       await repoSchema.create({userName:owner,repoName:repo,type,buildCommand,deployDirectory,uniqueId:repoId,node_id})
       const repoUrl = `https://api.github.com/repos/${owner}/${repo}/zipball`;
       const outputPath = path.join(__dirname, `../artifacts/${repo}.zip`);
-      execCommand(`sed -i 's/${repoId}}//g' /etc/user-monitor/allowed.txt `)
+      execCommand(`sed -i 's/${repoId}//g' /etc/user-monitor/allowed.txt `)
       
       await setProgress(statusId, 100);
 

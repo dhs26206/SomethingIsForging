@@ -9,6 +9,7 @@ const app =express()
 const cors=require('cors');
 const bodyParser=require('body-parser')
 const cookieparser=require('cookie-parser')
+require('dotenv').config();
 app.use(cors({
     origin: 'https://frontend.server.ddks.live', // Allow this specific domain
     credentials: true // If you need to allow cookies or authentication headers

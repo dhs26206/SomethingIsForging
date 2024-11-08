@@ -186,4 +186,4 @@ async function reservePort(id,deployDirectory,type) {
 }
     
 
-module.exports = {reservePort,isPortInUse,findFreePort};
+module.exports = {reservePort,isPortInUse,findFreePort,configureNginxFrontEndStatic};
