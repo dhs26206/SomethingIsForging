@@ -1,6 +1,6 @@
 const { execSync } = require('child_process');
 
-const {reservePort,isPortInUse,findFreePort}=require('./finalDeploy')
+const {reservePort,isPortInUse,findFreePort}=require('./NginxConfiguration')
 
 
 const f=async () => {

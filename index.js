@@ -1,5 +1,5 @@
 
-const github=require('./github')
+const github=require('./githubOuthHandler.js')
 const express=require('express')
 require('dotenv/config');
 const mongoose=require('mongoose');
@@ -45,7 +45,7 @@ const mongoPort=process.env.MONGO_PORT || 27017;
 const mongoUrl=process.env.MONGO_URL || "localhost";
 const mongoConnection=async()=>{
     try{
-
+        // console.log(`mongodb+srv://ddks:${encodeURIComponent(process.env.MONGO_PASSWORD)}@${mongoUrl}/forging`)
         await mongoose.connect(`mongodb+srv://ddks:${encodeURIComponent(process.env.MONGO_PASSWORD)}@${mongoUrl}/forging`);
         console.log(`mongo connected!!`);
     }
