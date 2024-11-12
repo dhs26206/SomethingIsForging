@@ -78,15 +78,19 @@ passport.use(new GitHubStrategy({
     clientSecret: process.env.GITHUB_CLIENT_SECRET,
     callbackURL: "https://admin.server.ddks.live/auth/github/callback"
   },
-  (accessToken, refreshToken, profile, done) => {
+  async (accessToken, refreshToken, profile, done) => {
   
-    console.log("Check Karo Profile "+profile.username);
-    profileSchema.findOneAndUpdate(
-      { userName: profile.username }, 
-      { access_Token: accessToken },  
-      { new: true, upsert: true } )
-    
-    return done(null, { profile, accessToken,refreshToken });
+    // console.log("Check Karo Profile "+profile.username+"And AccessToken "+accessToken);
+    try {
+      await profileSchema.findOneAndUpdate(
+        { userName: profile.username },
+        { access_Token: accessToken },
+        { new: true, upsert: true }
+      );
+      return done(null, { profile, accessToken, refreshToken });
+    } catch (error) {
+      return done(error);
+    }
   }));
 
 router.get('/github', passport.authenticate('github', { scope: ['user', 'repo'] }));
